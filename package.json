@@ -1,0 +1,35 @@
+{
+  "name": "code-comment-ai",
+  "version": "1.0.0",
+  "description": "CLI to auto-generate smart code comments using AI or static rules.",
+  "bin": {
+    "code-comment-ai": "dist/index.js"
+  },
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "start": "node dist/index.js"
+  },
+  "keywords": [
+    "cli",
+    "typescript",
+    "documentation",
+    "comment",
+    "ai",
+    "codegen"
+  ],
+  "author": "Divyansh Kumar",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "commander": "^14.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.10",
+    "tsup": "^8.5.0",
+    "typescript": "^5.8.3"
+  }
+}
