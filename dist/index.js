@@ -24,11 +24,9 @@ async function parseAndPrintFunctions(filePath) {
     const fileName = sourceFile.getBaseName();
     console.log(`
 \u{1F50D} File: ${fileName}`);
+    let modified = false;
     const functions = sourceFile.getFunctions();
-    const arrowFns = sourceFile.getDescendantsOfKind(SyntaxKind.VariableDeclaration).filter((d) => {
-      const init = d.getInitializer();
-      return init?.getKind() === SyntaxKind.ArrowFunction;
-    });
+    const arrowFns = sourceFile.getDescendantsOfKind(SyntaxKind.VariableDeclaration).filter((d) => d.getInitializerIfKind(SyntaxKind.ArrowFunction));
     const all = [...functions, ...arrowFns];
     if (all.length === 0) {
       console.log("  \u26D4 No functions found.");
@@ -38,27 +36,67 @@ async function parseAndPrintFunctions(filePath) {
       let name = "(anonymous)";
       let params = [];
       let returnType = "unknown";
-      let pos = 0;
+      let commentBlock = "";
+      let existing = false;
       if (fn instanceof FunctionDeclaration) {
         name = fn.getName() || "(anonymous)";
         params = fn.getParameters().map((p) => p.getName());
         returnType = fn.getReturnType().getText();
-        pos = fn.getStartLineNumber();
+        existing = fn.getLeadingCommentRanges().length > 0;
+        if (!existing) {
+          commentBlock = generateComment(name, params, returnType);
+          fn.replaceWithText(commentBlock + "\n" + fn.getText());
+          modified = true;
+        }
       } else if (fn instanceof VariableDeclaration) {
         name = fn.getName();
         const arrowFn = fn.getInitializerIfKind(SyntaxKind.ArrowFunction);
         if (arrowFn) {
           params = arrowFn.getParameters().map((p) => p.getName());
           returnType = arrowFn.getReturnType().getText();
-          pos = arrowFn.getStartLineNumber();
+          existing = arrowFn.getLeadingCommentRanges().length > 0;
+          if (!existing) {
+            commentBlock = generateComment(name, params, returnType);
+            arrowFn.replaceWithText(commentBlock + "\n" + arrowFn.getText());
+            modified = true;
+          }
         }
       }
-      console.log(`  \u2705 Function: ${name}`);
-      console.log(`     Params: ${params.join(", ")}`);
-      console.log(`     Returns: ${returnType}`);
-      console.log(`     Line: ${pos}`);
+      if (!existing) {
+        console.log(`  \u{1F4DD} Comment added for: ${name}`);
+      } else {
+        console.log(`  \u26A0\uFE0F  Skipped (already commented): ${name}`);
+      }
+    }
+    if (modified) {
+      await sourceFile.save();
+      console.log(`\u{1F4BE} Changes saved to ${fileName}`);
     }
   }
+}
+function generateComment(name, params, returnType) {
+  let doc = `/**
+ * ${generateSummary(name)}
+`;
+  for (const param of params) {
+    doc += ` * @param ${param} - parameter
+`;
+  }
+  doc += ` * @returns ${returnType}
+ */`;
+  return doc;
+}
+function generateSummary(name) {
+  const verbs = [
+    "Handles",
+    "Processes",
+    "Performs",
+    "Executes",
+    "Calculates",
+    "Runs"
+  ];
+  const verb = verbs[Math.floor(Math.random() * verbs.length)];
+  return `${verb} the function "${name}".`;
 }
 
 // src/index.ts
