@@ -1,0 +1,89 @@
+#!/usr/bin/env node
+"use strict";
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+
+// src/index.ts
+var import_commander = require("commander");
+var import_chalk = __toESM(require("chalk"), 1);
+
+// src/core.ts
+var import_path = __toESM(require("path"), 1);
+var import_ts_morph = require("ts-morph");
+async function parseAndPrintFunctions(filePath) {
+  const project = new import_ts_morph.Project();
+  const resolvedPath = import_path.default.resolve(process.cwd(), filePath);
+  const sourceFiles = project.addSourceFilesAtPaths([
+    `${resolvedPath}/**/*.ts`,
+    `${resolvedPath}/**/*.js`
+  ]);
+  console.log(`\u{1F4C4} Found ${sourceFiles.length} file(s)`);
+  for (const sourceFile of sourceFiles) {
+    const fileName = sourceFile.getBaseName();
+    console.log(`
+\u{1F50D} File: ${fileName}`);
+    const functions = sourceFile.getFunctions();
+    const arrowFns = sourceFile.getDescendantsOfKind(import_ts_morph.SyntaxKind.VariableDeclaration).filter((d) => {
+      const init = d.getInitializer();
+      return init?.getKind() === import_ts_morph.SyntaxKind.ArrowFunction;
+    });
+    const all = [...functions, ...arrowFns];
+    if (all.length === 0) {
+      console.log("  \u26D4 No functions found.");
+      continue;
+    }
+    for (const fn of all) {
+      let name = "(anonymous)";
+      let params = [];
+      let returnType = "unknown";
+      let pos = 0;
+      if (fn instanceof import_ts_morph.FunctionDeclaration) {
+        name = fn.getName() || "(anonymous)";
+        params = fn.getParameters().map((p) => p.getName());
+        returnType = fn.getReturnType().getText();
+        pos = fn.getStartLineNumber();
+      } else if (fn instanceof import_ts_morph.VariableDeclaration) {
+        name = fn.getName();
+        const arrowFn = fn.getInitializerIfKind(import_ts_morph.SyntaxKind.ArrowFunction);
+        if (arrowFn) {
+          params = arrowFn.getParameters().map((p) => p.getName());
+          returnType = arrowFn.getReturnType().getText();
+          pos = arrowFn.getStartLineNumber();
+        }
+      }
+      console.log(`  \u2705 Function: ${name}`);
+      console.log(`     Params: ${params.join(", ")}`);
+      console.log(`     Returns: ${returnType}`);
+      console.log(`     Line: ${pos}`);
+    }
+  }
+}
+
+// src/index.ts
+var program = new import_commander.Command();
+program.name("code-comment-ai").description("Generate comments for your code using static rules or AI").version("1.0.0");
+program.command("run").description("Run the comment generator on your codebase").option("-p, --path <path>", "path to file or folder", "./").option("--dry", "preview comments without writing them", false).option("--use-ai", "use AI to generate comments", false).action(async (options) => {
+  console.log(import_chalk.default.cyan("\u{1F9E0} Running comment generator..."));
+  await parseAndPrintFunctions(options.path);
+});
+program.parse();

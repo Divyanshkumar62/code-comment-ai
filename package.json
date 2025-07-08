@@ -25,7 +25,8 @@
   "type": "module",
   "dependencies": {
     "chalk": "^5.4.1",
-    "commander": "^14.0.0"
+    "commander": "^14.0.0",
+    "ts-morph": "^26.0.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.10",
