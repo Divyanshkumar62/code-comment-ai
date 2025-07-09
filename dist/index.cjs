@@ -29,14 +29,41 @@ var import_chalk = __toESM(require("chalk"), 1);
 
 // src/core.ts
 var import_path = __toESM(require("path"), 1);
+var import_fs = __toESM(require("fs"), 1);
 var import_ts_morph = require("ts-morph");
+var import_ignore = __toESM(require("ignore"), 1);
+function loadIgnorePatterns(projectPath) {
+  const ignorePath = import_path.default.join(projectPath, ".commentignore");
+  if (import_fs.default.existsSync(ignorePath)) {
+    const content = import_fs.default.readFileSync(ignorePath, "utf-8");
+    const ig = (0, import_ignore.default)().add(content);
+    return (relativePath) => ig.ignores(relativePath);
+  }
+  return () => false;
+}
+function getAllFiles(dir, ext = [".ts", ".js"]) {
+  let results = [];
+  const list = import_fs.default.readdirSync(dir);
+  list.forEach((file) => {
+    const fullPath = import_path.default.join(dir, file);
+    const stat = import_fs.default.statSync(fullPath);
+    if (stat && stat.isDirectory()) {
+      results = results.concat(getAllFiles(fullPath, ext));
+    } else if (ext.includes(import_path.default.extname(fullPath))) {
+      results.push(fullPath);
+    }
+  });
+  return results;
+}
 async function parseAndPrintFunctions(filePath) {
   const project = new import_ts_morph.Project();
   const resolvedPath = import_path.default.resolve(process.cwd(), filePath);
-  const sourceFiles = project.addSourceFilesAtPaths([
-    `${resolvedPath}/**/*.ts`,
-    `${resolvedPath}/**/*.js`
-  ]);
+  const shouldIgnore = loadIgnorePatterns(resolvedPath);
+  const allFiles = getAllFiles(resolvedPath).filter((file) => {
+    const relative = import_path.default.relative(resolvedPath, file);
+    return !shouldIgnore(relative);
+  });
+  const sourceFiles = project.addSourceFilesAtPaths(allFiles);
   console.log(`\u{1F4C4} Found ${sourceFiles.length} file(s)`);
   for (const sourceFile of sourceFiles) {
     const fileName = sourceFile.getBaseName();
@@ -65,6 +92,9 @@ async function parseAndPrintFunctions(filePath) {
           commentBlock = generateComment(name, params, returnType);
           fn.replaceWithText(commentBlock + "\n" + fn.getText());
           modified = true;
+          console.log(`  \u{1F4DD} Comment added for: ${name}`);
+        } else {
+          console.log(`  \u26A0\uFE0F  Skipped (already commented): ${name}`);
         }
       } else if (fn instanceof import_ts_morph.VariableDeclaration) {
         name = fn.getName();
@@ -77,13 +107,11 @@ async function parseAndPrintFunctions(filePath) {
             commentBlock = generateComment(name, params, returnType);
             arrowFn.replaceWithText(commentBlock + "\n" + arrowFn.getText());
             modified = true;
+            console.log(`  \u{1F4DD} Comment added for: ${name}`);
+          } else {
+            console.log(`  \u26A0\uFE0F  Skipped (already commented): ${name}`);
           }
         }
-      }
-      if (!existing) {
-        console.log(`  \u{1F4DD} Comment added for: ${name}`);
-      } else {
-        console.log(`  \u26A0\uFE0F  Skipped (already commented): ${name}`);
       }
     }
     if (modified) {
@@ -119,8 +147,8 @@ function generateSummary(name) {
 
 // src/index.ts
 var program = new import_commander.Command();
-program.name("code-comment-ai").description("Generate comments for your code using static rules or AI").version("1.0.0");
-program.command("run").description("Run the comment generator on your codebase").option("-p, --path <path>", "path to file or folder", "./").option("--dry", "preview comments without writing them", false).option("--use-ai", "use AI to generate comments", false).action(async (options) => {
+program.name("code-comment-ai").description("Generate code comments using static rules").version("1.0.0");
+program.command("run").description("Run the comment generator").option("-p, --path <path>", "Path to file or folder", "./").action(async (options) => {
   console.log(import_chalk.default.cyan("\u{1F9E0} Running comment generator..."));
   await parseAndPrintFunctions(options.path);
 });
