@@ -1,1 +1,8 @@
-temp.ts
+# Ignore individual file
+src/temp.ts
+
+# Ignore a folder
+src/utils/
+
+# Ignore all test files
+*.test.ts

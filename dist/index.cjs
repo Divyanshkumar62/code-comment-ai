@@ -32,11 +32,12 @@ var import_path = __toESM(require("path"), 1);
 var import_fs = __toESM(require("fs"), 1);
 var import_ts_morph = require("ts-morph");
 var import_ignore = __toESM(require("ignore"), 1);
-function loadIgnorePatterns(projectPath) {
-  const ignorePath = import_path.default.join(projectPath, ".commentignore");
+function loadIgnorePatterns() {
+  const ignorePath = import_path.default.join(process.cwd(), ".commentignore");
   if (import_fs.default.existsSync(ignorePath)) {
     const content = import_fs.default.readFileSync(ignorePath, "utf-8");
     const ig = (0, import_ignore.default)().add(content);
+    console.log("\u{1F4C4} Loaded .commentignore");
     return (relativePath) => ig.ignores(relativePath);
   }
   return () => false;
@@ -57,11 +58,15 @@ function getAllFiles(dir, ext = [".ts", ".js"]) {
 }
 async function parseAndPrintFunctions(filePath) {
   const project = new import_ts_morph.Project();
-  const resolvedPath = import_path.default.resolve(process.cwd(), filePath);
-  const shouldIgnore = loadIgnorePatterns(resolvedPath);
-  const allFiles = getAllFiles(resolvedPath).filter((file) => {
-    const relative = import_path.default.relative(resolvedPath, file);
-    return !shouldIgnore(relative);
+  const absolutePath = import_path.default.resolve(process.cwd(), filePath);
+  const shouldIgnore = loadIgnorePatterns();
+  const allFiles = getAllFiles(absolutePath).filter((file) => {
+    const relativeToRoot = import_path.default.relative(process.cwd(), file);
+    const ignored = shouldIgnore(relativeToRoot);
+    if (ignored) {
+      console.log(`\u26D4 Skipped by .commentignore: ${relativeToRoot}`);
+    }
+    return !ignored;
   });
   const sourceFiles = project.addSourceFilesAtPaths(allFiles);
   console.log(`\u{1F4C4} Found ${sourceFiles.length} file(s)`);

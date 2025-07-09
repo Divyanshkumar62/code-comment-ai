@@ -14,11 +14,12 @@ import {
   VariableDeclaration
 } from "ts-morph";
 import ignore from "ignore";
-function loadIgnorePatterns(projectPath) {
-  const ignorePath = path.join(projectPath, ".commentignore");
+function loadIgnorePatterns() {
+  const ignorePath = path.join(process.cwd(), ".commentignore");
   if (fs.existsSync(ignorePath)) {
     const content = fs.readFileSync(ignorePath, "utf-8");
     const ig = ignore().add(content);
+    console.log("\u{1F4C4} Loaded .commentignore");
     return (relativePath) => ig.ignores(relativePath);
   }
   return () => false;
@@ -39,11 +40,15 @@ function getAllFiles(dir, ext = [".ts", ".js"]) {
 }
 async function parseAndPrintFunctions(filePath) {
   const project = new Project();
-  const resolvedPath = path.resolve(process.cwd(), filePath);
-  const shouldIgnore = loadIgnorePatterns(resolvedPath);
-  const allFiles = getAllFiles(resolvedPath).filter((file) => {
-    const relative = path.relative(resolvedPath, file);
-    return !shouldIgnore(relative);
+  const absolutePath = path.resolve(process.cwd(), filePath);
+  const shouldIgnore = loadIgnorePatterns();
+  const allFiles = getAllFiles(absolutePath).filter((file) => {
+    const relativeToRoot = path.relative(process.cwd(), file);
+    const ignored = shouldIgnore(relativeToRoot);
+    if (ignored) {
+      console.log(`\u26D4 Skipped by .commentignore: ${relativeToRoot}`);
+    }
+    return !ignored;
   });
   const sourceFiles = project.addSourceFilesAtPaths(allFiles);
   console.log(`\u{1F4C4} Found ${sourceFiles.length} file(s)`);

@@ -9,30 +9,27 @@ import {
 import ignore from "ignore";
 
 /**
- * Calculates the function "loadIgnorePatterns".
- * @param projectPath - parameter
+ * Loads the .commentignore file and returns a matcher function.
  * @returns (filePath: string) => boolean
  */
-function loadIgnorePatterns(
-  projectPath: string
-): (relativePath: string) => boolean {
-  const ignorePath = path.join(projectPath, ".commentignore");
+function loadIgnorePatterns(): (relativePath: string) => boolean {
+  const ignorePath = path.join(process.cwd(), ".commentignore");
 
   if (fs.existsSync(ignorePath)) {
     const content = fs.readFileSync(ignorePath, "utf-8");
     const ig = ignore().add(content);
+    console.log("📄 Loaded .commentignore");
     return (relativePath: string) => ig.ignores(relativePath);
   }
 
   return () => false;
 }
 
-
 /**
- * Calculates the function "getAllFiles".
- * @param dir - parameter
- * @param ext - parameter
- * @returns string[]
+ * Recursively gets all files with specified extensions from a directory.
+ * @param dir - Directory path to scan.
+ * @param ext - File extensions to include.
+ * @returns string[] - List of file paths.
  */
 function getAllFiles(dir: string, ext: string[] = [".ts", ".js"]): string[] {
   let results: string[] = [];
@@ -52,24 +49,25 @@ function getAllFiles(dir: string, ext: string[] = [".ts", ".js"]): string[] {
   return results;
 }
 
-
-
 /**
- * Handles the function "parseAndPrintFunctions".
- * @param filePath - parameter
+ * Parses and adds comments to all functions in the target files.
+ * @param filePath - Path to folder (e.g., "src").
  * @returns Promise<void>
  */
 export async function parseAndPrintFunctions(filePath: string) {
   const project = new Project();
-  const resolvedPath = path.resolve(process.cwd(), filePath);
+  const absolutePath = path.resolve(process.cwd(), filePath);
 
-  const shouldIgnore = loadIgnorePatterns(resolvedPath);
+  const shouldIgnore = loadIgnorePatterns();
 
-  const allFiles = getAllFiles(resolvedPath).filter((file) => {
-    const relative = path.relative(resolvedPath, file);
-    return !shouldIgnore(relative);
+  const allFiles = getAllFiles(absolutePath).filter((file) => {
+    const relativeToRoot = path.relative(process.cwd(), file);
+    const ignored = shouldIgnore(relativeToRoot);
+    if (ignored) {
+      console.log(`⛔ Skipped by .commentignore: ${relativeToRoot}`);
+    }
+    return !ignored;
   });
-  
 
   const sourceFiles = project.addSourceFilesAtPaths(allFiles);
 
@@ -142,10 +140,10 @@ export async function parseAndPrintFunctions(filePath: string) {
 }
 
 /**
- * Handles the function "generateComment".
- * @param name - parameter
- * @param params - parameter
- * @param returnType - parameter
+ * Generates a JSDoc comment block for a function.
+ * @param name - Function name.
+ * @param params - Function parameters.
+ * @param returnType - Return type.
  * @returns string
  */
 function generateComment(
@@ -162,8 +160,8 @@ function generateComment(
 }
 
 /**
- * Calculates the function "generateSummary".
- * @param name - parameter
+ * Generates a random summary for a given function name.
+ * @param name - Function name.
  * @returns string
  */
 function generateSummary(name: string): string {
