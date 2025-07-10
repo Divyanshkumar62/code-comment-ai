@@ -2,7 +2,7 @@
 
 // src/index.ts
 import { Command } from "commander";
-import chalk from "chalk";
+import chalk2 from "chalk";
 
 // src/core.ts
 import path from "path";
@@ -14,12 +14,12 @@ import {
   VariableDeclaration
 } from "ts-morph";
 import ignore from "ignore";
+import chalk from "chalk";
 function loadIgnorePatterns() {
   const ignorePath = path.join(process.cwd(), ".commentignore");
   if (fs.existsSync(ignorePath)) {
     const content = fs.readFileSync(ignorePath, "utf-8");
     const ig = ignore().add(content);
-    console.log("\u{1F4C4} Loaded .commentignore");
     return (relativePath) => ig.ignores(relativePath);
   }
   return () => false;
@@ -46,7 +46,8 @@ async function parseAndPrintFunctions(filePath) {
     const relativeToRoot = path.relative(process.cwd(), file);
     const ignored = shouldIgnore(relativeToRoot);
     if (ignored) {
-      console.log(`\u26D4 Skipped by .commentignore: ${relativeToRoot}`);
+      console.log(`\u26D4 Skipped by .commentignore: ${relativeToRoot}
+`);
     }
     return !ignored;
   });
@@ -79,9 +80,9 @@ async function parseAndPrintFunctions(filePath) {
           commentBlock = generateComment(name, params, returnType);
           fn.replaceWithText(commentBlock + "\n" + fn.getText());
           modified = true;
-          console.log(`  \u{1F4DD} Comment added for: ${name}`);
+          console.log(chalk.green(`  \u{1F4DD} Comment added for: ${name}`));
         } else {
-          console.log(`  \u26A0\uFE0F  Skipped (already commented): ${name}`);
+          console.log(chalk.yellow(`  \u26A0\uFE0F  Skipped (already commented): ${name}`));
         }
       } else if (fn instanceof VariableDeclaration) {
         name = fn.getName();
@@ -89,14 +90,26 @@ async function parseAndPrintFunctions(filePath) {
         if (arrowFn) {
           params = arrowFn.getParameters().map((p) => p.getName());
           returnType = arrowFn.getReturnType().getText();
-          existing = arrowFn.getLeadingCommentRanges().length > 0;
-          if (!existing) {
+          const varStatement = fn.getFirstAncestorByKind(
+            SyntaxKind.VariableStatement
+          );
+          if (!varStatement) continue;
+          const existing2 = varStatement.getLeadingCommentRanges().length > 0;
+          if (!existing2) {
             commentBlock = generateComment(name, params, returnType);
-            arrowFn.replaceWithText(commentBlock + "\n" + arrowFn.getText());
+            const sourceFile2 = varStatement.getSourceFile();
+            const statements = sourceFile2.getStatements();
+            const index = statements.findIndex((s) => s === varStatement);
+            sourceFile2.insertStatements(
+              index,
+              `${commentBlock}
+${varStatement.getText()}`
+            );
+            varStatement.remove();
             modified = true;
-            console.log(`  \u{1F4DD} Comment added for: ${name}`);
+            console.log(chalk.green(`  \u{1F4DD} Comment added for: ${name}`));
           } else {
-            console.log(`  \u26A0\uFE0F  Skipped (already commented): ${name}`);
+            console.log(chalk.yellow(`  \u26A0\uFE0F  Skipped (already commented): ${name}`));
           }
         }
       }
@@ -134,9 +147,8 @@ function generateSummary(name) {
 
 // src/index.ts
 var program = new Command();
-program.name("code-comment-ai").description("Generate code comments using static rules").version("1.0.0");
-program.command("run").description("Run the comment generator").option("-p, --path <path>", "Path to file or folder", "./").action(async (options) => {
-  console.log(chalk.cyan("\u{1F9E0} Running comment generator..."));
+program.name("codecommentor").description("Auto-generate JS/TS function comments with static rules").version("1.0.0").option("-p, --path <path>", "Path to file or folder", "./src").action(async (options) => {
+  console.log(chalk2.cyan("\u{1F9E0} Running comment generator..."));
   await parseAndPrintFunctions(options.path);
 });
 program.parse();

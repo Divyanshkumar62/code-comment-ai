@@ -7,14 +7,10 @@ import { parseAndPrintFunctions } from "./core.js";
 const program = new Command();
 
 program
-  .name("code-comment-ai")
-  .description("Generate code comments using static rules")
-  .version("1.0.0");
-
-program
-  .command("run")
-  .description("Run the comment generator")
-  .option("-p, --path <path>", "Path to file or folder", "./")
+  .name("codecommentor")
+  .description("Auto-generate JS/TS function comments with static rules")
+  .version("1.0.0")
+  .option("-p, --path <path>", "Path to file or folder", "./src")
   .action(async (options) => {
     console.log(chalk.cyan("🧠 Running comment generator..."));
     await parseAndPrintFunctions(options.path);

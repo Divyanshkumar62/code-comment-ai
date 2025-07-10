@@ -7,6 +7,7 @@ import {
   VariableDeclaration,
 } from "ts-morph";
 import ignore from "ignore";
+import chalk from "chalk";
 
 /**
  * Loads the .commentignore file and returns a matcher function.
@@ -18,7 +19,6 @@ function loadIgnorePatterns(): (relativePath: string) => boolean {
   if (fs.existsSync(ignorePath)) {
     const content = fs.readFileSync(ignorePath, "utf-8");
     const ig = ignore().add(content);
-    console.log("📄 Loaded .commentignore");
     return (relativePath: string) => ig.ignores(relativePath);
   }
 
@@ -64,7 +64,7 @@ export async function parseAndPrintFunctions(filePath: string) {
     const relativeToRoot = path.relative(process.cwd(), file);
     const ignored = shouldIgnore(relativeToRoot);
     if (ignored) {
-      console.log(`⛔ Skipped by .commentignore: ${relativeToRoot}`);
+      console.log(`⛔ Skipped by .commentignore: ${relativeToRoot}\n`);
     }
     return !ignored;
   });
@@ -107,9 +107,9 @@ export async function parseAndPrintFunctions(filePath: string) {
           commentBlock = generateComment(name, params, returnType);
           fn.replaceWithText(commentBlock + "\n" + fn.getText());
           modified = true;
-          console.log(`  📝 Comment added for: ${name}`);
+          console.log(chalk.green(`  📝 Comment added for: ${name}`));
         } else {
-          console.log(`  ⚠️  Skipped (already commented): ${name}`);
+          console.log(chalk.yellow(`  ⚠️  Skipped (already commented): ${name}`));
         }
       } else if (fn instanceof VariableDeclaration) {
         name = fn.getName();
@@ -118,15 +118,33 @@ export async function parseAndPrintFunctions(filePath: string) {
         if (arrowFn) {
           params = arrowFn.getParameters().map((p) => p.getName());
           returnType = arrowFn.getReturnType().getText();
-          existing = arrowFn.getLeadingCommentRanges().length > 0;
+
+          const varStatement = fn.getFirstAncestorByKind(
+            SyntaxKind.VariableStatement
+          );
+          if (!varStatement) continue;
+
+          const existing = varStatement.getLeadingCommentRanges().length > 0;
+
 
           if (!existing) {
             commentBlock = generateComment(name, params, returnType);
-            arrowFn.replaceWithText(commentBlock + "\n" + arrowFn.getText());
+
+            // Insert comment before the original statement
+            const sourceFile = varStatement.getSourceFile();
+            const statements = sourceFile.getStatements();
+            const index = statements.findIndex((s) => s === varStatement);
+
+            sourceFile.insertStatements(
+              index,
+              `${commentBlock}\n${varStatement.getText()}`
+            );
+            varStatement.remove(); // Remove the original (uncommented) statement
+
             modified = true;
-            console.log(`  📝 Comment added for: ${name}`);
+            console.log(chalk.green(`  📝 Comment added for: ${name}`));
           } else {
-            console.log(`  ⚠️  Skipped (already commented): ${name}`);
+            console.log(chalk.yellow(`  ⚠️  Skipped (already commented): ${name}`));
           }
         }
       }

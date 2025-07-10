@@ -25,19 +25,19 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 
 // src/index.ts
 var import_commander = require("commander");
-var import_chalk = __toESM(require("chalk"), 1);
+var import_chalk2 = __toESM(require("chalk"), 1);
 
 // src/core.ts
 var import_path = __toESM(require("path"), 1);
 var import_fs = __toESM(require("fs"), 1);
 var import_ts_morph = require("ts-morph");
 var import_ignore = __toESM(require("ignore"), 1);
+var import_chalk = __toESM(require("chalk"), 1);
 function loadIgnorePatterns() {
   const ignorePath = import_path.default.join(process.cwd(), ".commentignore");
   if (import_fs.default.existsSync(ignorePath)) {
     const content = import_fs.default.readFileSync(ignorePath, "utf-8");
     const ig = (0, import_ignore.default)().add(content);
-    console.log("\u{1F4C4} Loaded .commentignore");
     return (relativePath) => ig.ignores(relativePath);
   }
   return () => false;
@@ -64,7 +64,8 @@ async function parseAndPrintFunctions(filePath) {
     const relativeToRoot = import_path.default.relative(process.cwd(), file);
     const ignored = shouldIgnore(relativeToRoot);
     if (ignored) {
-      console.log(`\u26D4 Skipped by .commentignore: ${relativeToRoot}`);
+      console.log(`\u26D4 Skipped by .commentignore: ${relativeToRoot}
+`);
     }
     return !ignored;
   });
@@ -97,9 +98,9 @@ async function parseAndPrintFunctions(filePath) {
           commentBlock = generateComment(name, params, returnType);
           fn.replaceWithText(commentBlock + "\n" + fn.getText());
           modified = true;
-          console.log(`  \u{1F4DD} Comment added for: ${name}`);
+          console.log(import_chalk.default.green(`  \u{1F4DD} Comment added for: ${name}`));
         } else {
-          console.log(`  \u26A0\uFE0F  Skipped (already commented): ${name}`);
+          console.log(import_chalk.default.yellow(`  \u26A0\uFE0F  Skipped (already commented): ${name}`));
         }
       } else if (fn instanceof import_ts_morph.VariableDeclaration) {
         name = fn.getName();
@@ -107,14 +108,26 @@ async function parseAndPrintFunctions(filePath) {
         if (arrowFn) {
           params = arrowFn.getParameters().map((p) => p.getName());
           returnType = arrowFn.getReturnType().getText();
-          existing = arrowFn.getLeadingCommentRanges().length > 0;
-          if (!existing) {
+          const varStatement = fn.getFirstAncestorByKind(
+            import_ts_morph.SyntaxKind.VariableStatement
+          );
+          if (!varStatement) continue;
+          const existing2 = varStatement.getLeadingCommentRanges().length > 0;
+          if (!existing2) {
             commentBlock = generateComment(name, params, returnType);
-            arrowFn.replaceWithText(commentBlock + "\n" + arrowFn.getText());
+            const sourceFile2 = varStatement.getSourceFile();
+            const statements = sourceFile2.getStatements();
+            const index = statements.findIndex((s) => s === varStatement);
+            sourceFile2.insertStatements(
+              index,
+              `${commentBlock}
+${varStatement.getText()}`
+            );
+            varStatement.remove();
             modified = true;
-            console.log(`  \u{1F4DD} Comment added for: ${name}`);
+            console.log(import_chalk.default.green(`  \u{1F4DD} Comment added for: ${name}`));
           } else {
-            console.log(`  \u26A0\uFE0F  Skipped (already commented): ${name}`);
+            console.log(import_chalk.default.yellow(`  \u26A0\uFE0F  Skipped (already commented): ${name}`));
           }
         }
       }
@@ -152,9 +165,8 @@ function generateSummary(name) {
 
 // src/index.ts
 var program = new import_commander.Command();
-program.name("code-comment-ai").description("Generate code comments using static rules").version("1.0.0");
-program.command("run").description("Run the comment generator").option("-p, --path <path>", "Path to file or folder", "./").action(async (options) => {
-  console.log(import_chalk.default.cyan("\u{1F9E0} Running comment generator..."));
+program.name("codecommentor").description("Auto-generate JS/TS function comments with static rules").version("1.0.0").option("-p, --path <path>", "Path to file or folder", "./src").action(async (options) => {
+  console.log(import_chalk2.default.cyan("\u{1F9E0} Running comment generator..."));
   await parseAndPrintFunctions(options.path);
 });
 program.parse();
